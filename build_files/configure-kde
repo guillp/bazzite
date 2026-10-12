@@ -7,7 +7,7 @@ dnf5 -y install \
   qt \
   steamdeck-kde-presets-desktop \
   rom-properties-kf6 \
-  fcitx5-{chewing,chinese-addons,hangul,m17n,mozc,table-extra} \
+  fcitx5-{chewing,chinese-addons,hangul,m17n,table-extra} \
   kcm-fcitx5 \
   gnome-disk-utility \
   krunner-bazaar \
