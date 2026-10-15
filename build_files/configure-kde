@@ -7,7 +7,7 @@ dnf5 -y install \
   qt \
   steamdeck-kde-presets-desktop \
   rom-properties-kf6 \
-  fcitx5-{chewing,chinese-addons,hangul,m17n,mozc,table-extra} \
+  fcitx5-{chewing,chinese-addons,hangul,m17n,table-extra} \
   kcm-fcitx5 \
   gnome-disk-utility \
   krunner-bazaar \
@@ -25,7 +25,91 @@ dnf5 -y remove \
   plasma-setup \
   kcharselect \
   kde-partitionmanager \
-  plasma-discover{,-libs}
+  plasma-discover{,-libs} \
+  gstreamer1-plugins-good-qt \
+  kdsoap \
+  kf5-attica \
+  kf5-frameworkintegration \
+  kf5-frameworkintegration-libs \
+  kf5-kactivities \
+  kf5-kactivities-stats \
+  kf5-karchive \
+  kf5-kauth \
+  kf5-kbookmarks \
+  kf5-kcodecs \
+  kf5-kcompletion \
+  kf5-kconfig-core \
+  kf5-kconfig-gui \
+  kf5-kconfigwidgets \
+  kf5-kcoreaddons \
+  kf5-kcrash \
+  kf5-kdbusaddons \
+  kf5-kdnssd \
+  kf5-kdoctools \
+  kf5-kglobalaccel \
+  kf5-kglobalaccel-libs \
+  kf5-kguiaddons \
+  kf5-ki18n \
+  kf5-kiconthemes \
+  kf5-kinit \
+  kf5-kio-core \
+  kf5-kio-core-libs \
+  kf5-kio-doc \
+  kf5-kio-file-widgets \
+  kf5-kio-gui \
+  kf5-kio-ntlm \
+  kf5-kio-widgets \
+  kf5-kio-widgets-libs \
+  kf5-kirigami2 \
+  kf5-kitemviews \
+  kf5-kjobwidgets \
+  kf5-knewstuff \
+  kf5-knotifications \
+  kf5-kpackage \
+  kf5-kservice \
+  kf5-ktextwidgets \
+  kf5-kwallet \
+  kf5-kwallet-libs \
+  kf5-kwayland \
+  kf5-kwidgetsaddons \
+  kf5-kwindowsystem \
+  kf5-kxmlgui \
+  kf5-qqc2-desktop-style \
+  kf5-solid \
+  kf5-sonnet \
+  kf5-sonnet-core \
+  kf5-sonnet-hunspell \
+  kf5-sonnet-ui \
+  kf5-syndication \
+  kf5-syntax-highlighting \
+  kio-extras-kf5 \
+  libkexiv2-qt5 \
+  phonon-qt5 \
+  phonon-qt5-backend-vlc \
+  plasma-breeze-qt5 \
+  plasma-integration-qt5 \
+  plasma-oxygen-qt5 \
+  polkit-qt5-1 \
+  dbusmenu-qt5 \
+  kf5-filesystem \
+  qt5-qtgraphicaleffects \
+  qt5-qtimageformats \
+  qt5-qtquickcontrols \
+  qt5-qtquickcontrols2 \
+  qt5-qtspeech \
+  qt5-qtspeech-speechd \
+  qt5-qtsvg \
+  qt5-qtx11extras
+
+dnf5 -y install \
+  plasma-breeze \
+  plasma-desktop \
+  plasma-integration \
+  plasma-lookandfeel-fedora \
+  plasma-oxygen \
+  plasma-print-manager \
+  plasma-print-manager-libs \
+  plasma-workspace
 
 sed -i '$r /usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/bazzite-pins.js' /usr/share/plasma/layout-templates/org.kde.plasma.desktop.defaultPanel/contents/layout.js
 ln -sf /usr/share/wallpapers/convergence.jxl /usr/share/backgrounds/default.jxl

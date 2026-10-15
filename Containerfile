@@ -51,6 +51,7 @@ COPY build_files /
 
 FROM ${BASE_IMAGE} AS bazzite
 
+ARG ARCH="${ARCH:-x86_64}"
 ARG IMAGE_NAME="${IMAGE_NAME:-bazzite}"
 ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
 ARG IMAGE_BRANCH="${IMAGE_BRANCH:-stable}"
@@ -171,9 +172,18 @@ RUN --mount=type=cache,dst=/var/cache \
         openh264.i686 && \
     dnf5 -y install --enable-repo="*fedora-multimedia*" \
         libbluray \
-        libbluray-utils \
+        libbluray-utils && \
+    dnf5 -y download \
+        --arch "${ARCH}" \
+        --destdir=/tmp/makemkv-rpms \
+        --enable-repo="*fedora-multimedia*" \
         makemkv && \
-    desktop-file-edit --set-key=Hidden --set-value=true /usr/share/applications/makemkv.desktop && \
+    rpm_file=$(find /tmp/makemkv-rpms -name 'makemkv-*.rpm' -type f -print -quit) && \
+    test -n "$rpm_file" && \
+    mkdir -p /tmp/makemkv-extract && \
+    (cd /tmp/makemkv-extract && rpm2cpio "$rpm_file" | cpio -id --quiet './usr/lib64/libmmbd.so.0') && \
+    cp -a /tmp/makemkv-extract/usr/lib64/libmmbd.so.0 /usr/lib64/ && \
+    rm -rf /tmp/makemkv-rpms /tmp/makemkv-extract && \
     ln -sf /usr/lib64/libmmbd.so.0 /usr/lib64/libaacs.so.0 && \
     ln -sf /usr/lib64/libmmbd.so.0 /usr/lib64/libaacs.so.0.7.2 && \
     ln -sf /usr/lib64/libmmbd.so.0 /usr/lib64/libbdplus.so.0 && \
@@ -394,7 +404,6 @@ RUN --mount=type=cache,dst=/var/cache \
             gnome-rounded-blur \
             rom-properties-gtk4 \
             rom-properties-localsearch3 \
-            ibus-mozc \
             openssh-askpass \
             firewall-config && \
         dnf5 -y remove \
