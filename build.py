@@ -60,7 +60,7 @@ IMAGE_VENDOR_DEFAULT = "ublue-os"
 DEFAULTS = {
     "fedora_version": 45,
     "kernel_flavor": "ogc",
-    "kernel_version": "7.3.4-ogc6.1.fc45",
+    "kernel_version": "7.2.15-ogc1.1.fc45",
     "base_image_flavor": "main",
     "arch": "x86_64",
 }
@@ -306,7 +306,9 @@ def run(
     line is always logged at INFO; captured output is logged at DEBUG.
     """
     printable = " ".join(cmd)
-    log.info("+ %s%s", f"(cd {cwd} && " if cwd else "", printable + (")" if cwd else ""))
+    log.info(
+        "+ %s%s", f"(cd {cwd} && " if cwd else "", printable + (")" if cwd else "")
+    )
     if dry_run:
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
@@ -331,11 +333,15 @@ def run(
             if attempt < retries:
                 log.warning(
                     "command failed (attempt %d/%d), retrying in %ss: %s",
-                    attempt, retries, retry_wait, printable,
+                    attempt,
+                    retries,
+                    retry_wait,
+                    printable,
                 )
                 time.sleep(retry_wait)
     assert last_exc is not None
     raise CommandError(str(last_exc)) from last_exc
+
 
 @dataclasses.dataclass
 class Variant:
@@ -413,13 +419,15 @@ def resolve_pretty_version(
     pr_number: str | None = None,
 ) -> str:
     """
-    VERSION_PRETTY build args from our resolved release tag. 
+    VERSION_PRETTY build args from our resolved release tag.
     The registry tag carries the branch prefix and only has a point-release suffix on collisions.
     """
     release = version.removeprefix("unstable-").removeprefix("testing-")
 
     if not release.startswith(f"{fedora_version}."):
-        raise ValueError(f"version tag {version} does not match fedora_version {fedora_version}")
+        raise ValueError(
+            f"version tag {version} does not match fedora_version {fedora_version}"
+        )
 
     if pr_number:
         pretty = f"PR ({pr_number}, F{release}, #{sha_short})"
@@ -432,7 +440,9 @@ def resolve_pretty_version(
     return pretty
 
 
-def release_version(*, ref_name: str, fedora_version: int, today: datetime | None = None) -> str:
+def release_version(
+    *, ref_name: str, fedora_version: int, today: datetime | None = None
+) -> str:
     """The OCI-label / registry-tag version, before point-release dedup."""
     today = today or datetime.now(timezone.utc)
     version = f"{fedora_version}.{today:%Y%m%d}"
@@ -464,11 +474,15 @@ def alias_tags(*, ref_name: str, version: str, fedora_version: int) -> list[str]
     return [f"stable-{version}", "latest", "stable", f"stable-{fedora_version}"]
 
 
-def labels_for(variant: Variant, *, version: str, sha: str, kernel_evr: str) -> dict[str, str]:
+def labels_for(
+    variant: Variant, *, version: str, sha: str, kernel_evr: str
+) -> dict[str, str]:
     labels = dict(IMAGE_LABELS)
     labels["org.opencontainers.image.revision"] = sha
     labels["org.opencontainers.image.version"] = version
-    labels["org.opencontainers.image.created"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    labels["org.opencontainers.image.created"] = datetime.now(timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     labels["ostree.bootable"] = "true"
     labels["ostree.linux"] = kernel_evr
     return labels
@@ -523,7 +537,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                 capture=True,
                 check=False,
             )
-            uninitialized = [line for line in result.stdout.splitlines() if line.startswith("-")]
+            uninitialized = [
+                line for line in result.stdout.splitlines() if line.startswith("-")
+            ]
             if uninitialized:
                 log.error(
                     "%d submodule(s) not initialized (firmware / gnome extensions). "
@@ -559,7 +575,9 @@ def list_tags(image_ref: str) -> set[str]:
     Empty if the image doesn't exist yet, and also if skopeo fails for any
     other reason (network, auth), so version dedup can't see existing tags.
     """
-    result = run(["skopeo", "list-tags", f"docker://{image_ref}"], capture=True, check=False)
+    result = run(
+        ["skopeo", "list-tags", f"docker://{image_ref}"], capture=True, check=False
+    )
     if result.returncode != 0:
         return set()
     return set(json.loads(result.stdout).get("Tags", []))
@@ -576,7 +594,9 @@ def cmd_version(args: argparse.Namespace) -> int:
     if len(fedora_versions) != 1:
         log.error("images disagree on fedora_version: %s", sorted(fedora_versions))
         return 1
-    version = release_version(ref_name=args.ref_name, fedora_version=fedora_versions.pop())
+    version = release_version(
+        ref_name=args.ref_name, fedora_version=fedora_versions.pop()
+    )
 
     if not args.dry_run and not args.skip_registry:
         existing: set[str] = set()
@@ -604,10 +624,16 @@ def cmd_resolve(args: argparse.Namespace) -> int:
         # silently stamp the old release onto images.
         version = args.version
         if f"{variant.fedora_version}." not in version:
-            log.error("version tag %s does not match fedora_version %s", version, variant.fedora_version)
+            log.error(
+                "version tag %s does not match fedora_version %s",
+                version,
+                variant.fedora_version,
+            )
             return 1
     else:
-        version = release_version(ref_name=ref_name, fedora_version=variant.fedora_version)
+        version = release_version(
+            ref_name=ref_name, fedora_version=variant.fedora_version
+        )
         if not args.dry_run and not args.skip_registry:
             with group(f"Checking existing tags for {output_image}"):
                 version = dedup_version(version, list_tags(output_image))
@@ -628,8 +654,15 @@ def cmd_resolve(args: argparse.Namespace) -> int:
         version_pretty=version_pretty,
     )
 
-    tags = alias_tags(ref_name=ref_name, version=version, fedora_version=variant.fedora_version)
-    labels = labels_for(variant, version=version, sha=sha, kernel_evr=args.kernel_evr or variant.kernel_version)
+    tags = alias_tags(
+        ref_name=ref_name, version=version, fedora_version=variant.fedora_version
+    )
+    labels = labels_for(
+        variant,
+        version=version,
+        sha=sha,
+        kernel_evr=args.kernel_evr or variant.kernel_version,
+    )
 
     out = {
         "image": variant.image,
@@ -717,7 +750,17 @@ def cmd_rechunk(args: argparse.Namespace) -> int:
     """
     with group("Emptying /run and /tmp"):
         run(
-            ["buildah", "unshare", "bash", "-euo", "pipefail", "-c", SCRUB_RUN_TMP, "bash", args.raw_image],
+            [
+                "buildah",
+                "unshare",
+                "bash",
+                "-euo",
+                "pipefail",
+                "-c",
+                SCRUB_RUN_TMP,
+                "bash",
+                args.raw_image,
+            ],
             dry_run=args.dry_run,
         )
 
@@ -727,7 +770,14 @@ def cmd_rechunk(args: argparse.Namespace) -> int:
         chunkah_ref = args.chunkah_image
     else:
         inspected = run(
-            ["podman", "image", "inspect", "--format", "{{index .RepoDigests 0}}", args.chunkah_image],
+            [
+                "podman",
+                "image",
+                "inspect",
+                "--format",
+                "{{index .RepoDigests 0}}",
+                args.chunkah_image,
+            ],
             capture=True,
         )
         chunkah_ref = inspected.stdout.strip()
@@ -735,9 +785,12 @@ def cmd_rechunk(args: argparse.Namespace) -> int:
     with group(f"Verifying {chunkah_ref}"):
         run(
             [
-                "cosign", "verify",
-                "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
-                "--certificate-identity-regexp", r"^https://github\.com/coreos/chunkah/",
+                "cosign",
+                "verify",
+                "--certificate-oidc-issuer",
+                "https://token.actions.githubusercontent.com",
+                "--certificate-identity-regexp",
+                r"^https://github\.com/coreos/chunkah/",
                 chunkah_ref,
             ],
             dry_run=args.dry_run,
@@ -751,33 +804,52 @@ def cmd_rechunk(args: argparse.Namespace) -> int:
     for stale in STALE_RECHUNK_LABELS:
         labels += ["--label", f"{stale}-"]
 
-    with tempfile.TemporaryDirectory(prefix="rechunk-", dir=scratch_dir()) as rechunk_dir:
+    with tempfile.TemporaryDirectory(
+        prefix="rechunk-", dir=scratch_dir()
+    ) as rechunk_dir:
         config_path = Path(rechunk_dir) / "chunkah-config.json"
         with group("Composing chunked OCI image"):
             # Carries Env, Cmd, and containers.bootc over to the chunked image.
-            inspected = run(["podman", "image", "inspect", f"localhost/{args.raw_image}"], capture=True, dry_run=args.dry_run)
+            inspected = run(
+                ["podman", "image", "inspect", f"localhost/{args.raw_image}"],
+                capture=True,
+                dry_run=args.dry_run,
+            )
             if not args.dry_run:
                 config_path.write_text(inspected.stdout)
 
             run(
                 [
-                    "podman", "run", "--rm", "--pull=never",
+                    "podman",
+                    "run",
+                    "--rm",
+                    "--pull=never",
                     f"--mount=type=image,src=localhost/{args.raw_image},target=/chunkah",
-                    "--volume", f"{config_path}:/chunkah-config.json:ro,Z",
-                    "--volume", f"{rechunk_dir}:/run/out:Z",
+                    "--volume",
+                    f"{config_path}:/chunkah-config.json:ro,Z",
+                    "--volume",
+                    f"{rechunk_dir}:/run/out:Z",
                     chunkah_ref,
                     "build",
                     "--verbose",
-                    "--max-layers", str(args.max_layers),
-                    "--prune", "/sysroot/",
+                    "--max-layers",
+                    str(args.max_layers),
+                    "--prune",
+                    "/sysroot/",
                     *labels,
-                    "--config", "/chunkah-config.json",
-                    "--output", "oci:/run/out/chunked",
+                    "--config",
+                    "/chunkah-config.json",
+                    "--output",
+                    "oci:/run/out/chunked",
                 ],
                 dry_run=args.dry_run,
             )
 
-        run(["podman", "rmi", "-f", f"localhost/{args.raw_image}"], dry_run=args.dry_run, check=False)
+        run(
+            ["podman", "rmi", "-f", f"localhost/{args.raw_image}"],
+            dry_run=args.dry_run,
+            check=False,
+        )
 
         if args.dry_run:
             print(json.dumps({"ref": f"containers-storage:{args.chunked_image}"}))
@@ -814,8 +886,18 @@ def cmd_sbom(args: argparse.Namespace) -> int:
     env = {"SYFT_PARALLELISM": str((os.cpu_count() or 1) * 2)}
     run(
         [
-            "buildah", "unshare", "bash", "-euo", "pipefail", "-c", SYFT_ON_MOUNT,
-            "bash", args.chunked_image, args.syft_cmd, source_name, str(sbom_path),
+            "buildah",
+            "unshare",
+            "bash",
+            "-euo",
+            "pipefail",
+            "-c",
+            SYFT_ON_MOUNT,
+            "bash",
+            args.chunked_image,
+            args.syft_cmd,
+            source_name,
+            str(sbom_path),
         ],
         dry_run=args.dry_run,
         env=env,
@@ -844,7 +926,10 @@ def cmd_packages(args: argparse.Namespace) -> int:
     packages_path = sbom_path.parent / f"packages-{args.image}.json"
     packages = sbom_packages(json.loads(sbom_path.read_bytes()))
     packages_path.write_text(
-        json.dumps({"image": args.image, "version": args.version, "packages": packages}, sort_keys=True)
+        json.dumps(
+            {"image": args.image, "version": args.version, "packages": packages},
+            sort_keys=True,
+        )
     )
     print(json.dumps({"packages": str(packages_path)}))
     return 0
@@ -854,7 +939,10 @@ def cmd_test(args: argparse.Namespace) -> int:
     """Run the goss test suite against a built image. Thin passthrough so CI and
     local iteration share one entrypoint; tests/dgoss/ itself is untouched.
     """
-    run(["tests/dgoss/dgoss-tests.sh", "tests/dgoss/tests.d", args.ref], dry_run=args.dry_run)
+    run(
+        ["tests/dgoss/dgoss-tests.sh", "tests/dgoss/tests.d", args.ref],
+        dry_run=args.dry_run,
+    )
     return 0
 
 
@@ -878,9 +966,13 @@ def cmd_push(args: argparse.Namespace) -> int:
         for _ in range(2):
             run(
                 [
-                    "podman", "push", f"--digestfile={digestfile}",
-                    "--compression-format=zstd", "--compression-level=3",
-                    rechunk_ref, f"docker://{target}",
+                    "podman",
+                    "push",
+                    f"--digestfile={digestfile}",
+                    "--compression-format=zstd",
+                    "--compression-level=3",
+                    rechunk_ref,
+                    f"docker://{target}",
                 ],
                 dry_run=args.dry_run,
             )
@@ -897,7 +989,12 @@ def cmd_push(args: argparse.Namespace) -> int:
 
     for tag in args.alias_tags.split():
         run(
-            ["skopeo", "copy", f"docker://{args.output_image}@{digest}", f"docker://{args.output_image}:{tag}"],
+            [
+                "skopeo",
+                "copy",
+                f"docker://{args.output_image}@{digest}",
+                f"docker://{args.output_image}:{tag}",
+            ],
             dry_run=args.dry_run,
         )
         summary.append(f"{args.output_image}:{tag}")
@@ -920,8 +1017,13 @@ def cmd_sign(args: argparse.Namespace) -> int:
     """
     run(
         [
-            "cosign", "sign", "-y", "--key", "env://COSIGN_PRIVATE_KEY",
-            "--new-bundle-format=false", "--use-signing-config=false",
+            "cosign",
+            "sign",
+            "-y",
+            "--key",
+            "env://COSIGN_PRIVATE_KEY",
+            "--new-bundle-format=false",
+            "--use-signing-config=false",
             args.ref,
         ],
         dry_run=args.dry_run,
@@ -939,9 +1041,12 @@ def cmd_sbom_attach(args: argparse.Namespace) -> int:
     # workflow's `cd "$(dirname "$SBOM")"`.
     run(
         [
-            "oras", "attach",
-            "--artifact-type", "application/vnd.spdx+json",
-            "--annotation", f"filename={sbom_path.name}",
+            "oras",
+            "attach",
+            "--artifact-type",
+            "application/vnd.spdx+json",
+            "--annotation",
+            f"filename={sbom_path.name}",
             f"{args.image}@{args.digest}",
             sbom_path.name,
         ],
@@ -952,11 +1057,20 @@ def cmd_sbom_attach(args: argparse.Namespace) -> int:
     if args.dry_run:
         sbom_digest = "sha256:dryrun-sbom"
     else:
-        result = run(["oras", "discover", "--format", "json", f"{args.image}@{args.digest}"], capture=True)
+        result = run(
+            ["oras", "discover", "--format", "json", f"{args.image}@{args.digest}"],
+            capture=True,
+        )
         referrers = json.loads(result.stdout).get("referrers", [])
-        matches = [r["digest"] for r in referrers if r.get("artifactType") == "application/vnd.spdx+json"]
+        matches = [
+            r["digest"]
+            for r in referrers
+            if r.get("artifactType") == "application/vnd.spdx+json"
+        ]
         if not matches:
-            raise CommandError("no application/vnd.spdx+json referrer found after oras attach")
+            raise CommandError(
+                "no application/vnd.spdx+json referrer found after oras attach"
+            )
         sbom_digest = matches[0]
 
     print(json.dumps({"sbom_digest": sbom_digest}))
@@ -967,7 +1081,14 @@ def cmd_shell(args: argparse.Namespace) -> int:
     """Build the image if it doesn't exist locally, then drop into a shell in it."""
     tag = args.tag or f"localhost/{args.image}:build"
     check = run(
-        [args.container_mgr, "images", "--filter", f"reference={tag}", "--format", "{{.ID}}"],
+        [
+            args.container_mgr,
+            "images",
+            "--filter",
+            f"reference={tag}",
+            "--format",
+            "{{.ID}}",
+        ],
         capture=True,
         check=False,
         dry_run=args.dry_run,
@@ -975,7 +1096,11 @@ def cmd_shell(args: argparse.Namespace) -> int:
     if not args.dry_run and not check.stdout.strip():
         log.info("%s not built yet, building first", tag)
         cmd_build(args)
-    run([args.container_mgr, "run", "-it", "--rm", tag, "/usr/bin/bash"], dry_run=args.dry_run, interactive=True)
+    run(
+        [args.container_mgr, "run", "-it", "--rm", tag, "/usr/bin/bash"],
+        dry_run=args.dry_run,
+        interactive=True,
+    )
     return 0
 
 
@@ -996,7 +1121,9 @@ def detect_container_mgr() -> str:
     for candidate in ("docker", "podman", "podman-remote"):
         if shutil.which(candidate):
             return candidate
-    raise CommandError("no container manager found (looked for docker, podman, podman-remote)")
+    raise CommandError(
+        "no container manager found (looked for docker, podman, podman-remote)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1011,47 +1138,94 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument("-q", "--quiet", action="count", default=0)
-    parser.add_argument("--dry-run", action="store_true", help="print commands instead of running them")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="print commands instead of running them"
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("doctor", help="check your machine is set up to build").set_defaults(func=cmd_doctor)
-    sub.add_parser("images", help="list valid --image values").set_defaults(func=cmd_images)
-    sub.add_parser("matrix", help="print the GitHub Actions build matrix as JSON").set_defaults(func=cmd_matrix)
+    sub.add_parser("doctor", help="check your machine is set up to build").set_defaults(
+        func=cmd_doctor
+    )
+    sub.add_parser("images", help="list valid --image values").set_defaults(
+        func=cmd_images
+    )
+    sub.add_parser(
+        "matrix", help="print the GitHub Actions build matrix as JSON"
+    ).set_defaults(func=cmd_matrix)
 
-    p_resolve = sub.add_parser("resolve", help="print build args/labels/tags for one image as JSON")
+    p_resolve = sub.add_parser(
+        "resolve", help="print build args/labels/tags for one image as JSON"
+    )
     p_resolve.add_argument("--image", default=DEFAULT_IMAGE, choices=sorted(IMAGES))
-    p_resolve.add_argument("--ref-name", default=os.environ.get("GITHUB_REF_NAME", "main"))
+    p_resolve.add_argument(
+        "--ref-name", default=os.environ.get("GITHUB_REF_NAME", "main")
+    )
     p_resolve.add_argument("--sha", default=os.environ.get("GITHUB_SHA"))
     p_resolve.add_argument("--pr-number", default=os.environ.get("PR_NUMBER"))
     p_resolve.add_argument("--image-vendor", default=IMAGE_VENDOR_DEFAULT)
     p_resolve.add_argument("--push-registry", default=PULL_REGISTRY)
-    p_resolve.add_argument("--kernel-evr", default=None, help="ostree.linux label value (default: the kernel_version from IMAGES)")
-    p_resolve.add_argument("--skip-registry", action="store_true", help="skip point-release dedup against the registry")
-    p_resolve.add_argument("--version", default=None, help="use this release version (from `version`) instead of resolving one")
+    p_resolve.add_argument(
+        "--kernel-evr",
+        default=None,
+        help="ostree.linux label value (default: the kernel_version from IMAGES)",
+    )
+    p_resolve.add_argument(
+        "--skip-registry",
+        action="store_true",
+        help="skip point-release dedup against the registry",
+    )
+    p_resolve.add_argument(
+        "--version",
+        default=None,
+        help="use this release version (from `version`) instead of resolving one",
+    )
     p_resolve.set_defaults(func=cmd_resolve)
 
-    p_version = sub.add_parser("version", help="print the release version tag shared by every image in a run, as JSON")
-    p_version.add_argument("--ref-name", default=os.environ.get("GITHUB_REF_NAME", "main"))
+    p_version = sub.add_parser(
+        "version",
+        help="print the release version tag shared by every image in a run, as JSON",
+    )
+    p_version.add_argument(
+        "--ref-name", default=os.environ.get("GITHUB_REF_NAME", "main")
+    )
     p_version.add_argument("--push-registry", default=PULL_REGISTRY)
-    p_version.add_argument("--skip-registry", action="store_true", help="skip point-release dedup against the registry")
+    p_version.add_argument(
+        "--skip-registry",
+        action="store_true",
+        help="skip point-release dedup against the registry",
+    )
     p_version.set_defaults(func=cmd_version)
 
     # Shared because cmd_shell falls back to cmd_build.
     build_opts = argparse.ArgumentParser(add_help=False)
     build_opts.add_argument("--image", default=DEFAULT_IMAGE, choices=sorted(IMAGES))
     build_opts.add_argument("--container-mgr", default=None)
-    build_opts.add_argument("--resolved-json", default=None, help="reuse build args from `resolve`'s output (CI)")
+    build_opts.add_argument(
+        "--resolved-json",
+        default=None,
+        help="reuse build args from `resolve`'s output (CI)",
+    )
     build_opts.add_argument("--tag", default=None)
-    build_opts.add_argument("--secret", default=None, help="passed through to --secret (e.g. id=GITHUB_TOKEN,env=GITHUB_TOKEN)")
+    build_opts.add_argument(
+        "--secret",
+        default=None,
+        help="passed through to --secret (e.g. id=GITHUB_TOKEN,env=GITHUB_TOKEN)",
+    )
 
-    p_build = sub.add_parser("build", parents=[build_opts], help="build one image locally")
+    p_build = sub.add_parser(
+        "build", parents=[build_opts], help="build one image locally"
+    )
     p_build.set_defaults(func=cmd_build)
 
-    p_shell = sub.add_parser("shell", parents=[build_opts], help="build if needed, then shell into the image")
+    p_shell = sub.add_parser(
+        "shell", parents=[build_opts], help="build if needed, then shell into the image"
+    )
     p_shell.set_defaults(func=cmd_shell)
 
-    p_rechunk = sub.add_parser("rechunk", help="rechunk a raw build into an OCI image via chunkah")
+    p_rechunk = sub.add_parser(
+        "rechunk", help="rechunk a raw build into an OCI image via chunkah"
+    )
     p_rechunk.add_argument("--raw-image", default="raw-img")
     p_rechunk.add_argument("--chunked-image", default="localhost/chunked-img")
     p_rechunk.add_argument(
@@ -1070,7 +1244,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_sbom.add_argument("--syft-cmd", default="syft")
     p_sbom.set_defaults(func=cmd_sbom)
 
-    p_packages = sub.add_parser("packages", help="write an image's RPM versions from its SBOM, for release notes")
+    p_packages = sub.add_parser(
+        "packages",
+        help="write an image's RPM versions from its SBOM, for release notes",
+    )
     p_packages.add_argument("--image", required=True, choices=sorted(IMAGES))
     p_packages.add_argument("--sbom", required=True)
     p_packages.add_argument("--version", required=True)
@@ -1080,19 +1257,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_test.add_argument("--ref", required=True)
     p_test.set_defaults(func=cmd_test)
 
-    p_push = sub.add_parser("push", help="push a rechunked image and its alias tags to a registry")
+    p_push = sub.add_parser(
+        "push", help="push a rechunked image and its alias tags to a registry"
+    )
     p_push.add_argument("--output-image", required=True)
     p_push.add_argument("--version", required=True)
-    p_push.add_argument("--alias-tags", required=True, help="space-separated list of alias tags")
-    p_push.add_argument("--rechunk-ref", required=True, help="e.g. containers-storage:localhost/chunked-img")
+    p_push.add_argument(
+        "--alias-tags", required=True, help="space-separated list of alias tags"
+    )
+    p_push.add_argument(
+        "--rechunk-ref",
+        required=True,
+        help="e.g. containers-storage:localhost/chunked-img",
+    )
     p_push.add_argument("--summary-file", default=os.environ.get("GITHUB_STEP_SUMMARY"))
     p_push.set_defaults(func=cmd_push)
 
-    p_sign = sub.add_parser("sign", help="cosign sign a ref using COSIGN_PRIVATE_KEY from the environment")
+    p_sign = sub.add_parser(
+        "sign", help="cosign sign a ref using COSIGN_PRIVATE_KEY from the environment"
+    )
     p_sign.add_argument("--ref", required=True)
     p_sign.set_defaults(func=cmd_sign)
 
-    p_sbom_attach = sub.add_parser("sbom-attach", help="attach an SBOM file to an image digest via oras")
+    p_sbom_attach = sub.add_parser(
+        "sbom-attach", help="attach an SBOM file to an image digest via oras"
+    )
     p_sbom_attach.add_argument("--image", required=True)
     p_sbom_attach.add_argument("--digest", required=True)
     p_sbom_attach.add_argument("--sbom", required=True)
